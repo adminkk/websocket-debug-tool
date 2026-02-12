@@ -181,8 +181,8 @@
         }
 
         .left-panel {
-            width: 320px;
-            min-width: 280px;
+            width: 360px;
+            min-width: 320px;
             background: var(--bg-secondary);
             border-right: 1px solid var(--border-color);
             padding: 20px;
@@ -255,6 +255,21 @@
 
         .form-group {
             margin-bottom: 12px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .reconnect-settings {
+            display: flex;
+            gap: 16px;
+        }
+
+        .reconnect-settings .form-group {
+            flex: 1;
+            margin-bottom: 0;
         }
 
         .form-label {
@@ -1394,21 +1409,23 @@
                         <input type="checkbox" id="heartbeatEnabled">
                         启用心跳
                     </label>
-                    <div class="form-group">
-                        <label class="form-label">
-                            <svg class="label-icon"><use href="#icon-time"></use></svg>
-                            发送间隔（秒）
-                        </label>
-                        <input type="number" id="heartbeatInterval" class="form-input" value="30" min="5">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">
-                            <svg class="label-icon"><use href="#icon-template"></use></svg>
-                            选择模板
-                        </label>
-                        <select id="heartbeatTemplate" class="template-select" onchange="selectHeartbeatForHeartbeat(this.value)">
-                            <option value="">-- 选择模板 --</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">
+                                <svg class="label-icon"><use href="#icon-time"></use></svg>
+                                发送间隔（秒）
+                            </label>
+                            <input type="number" id="heartbeatInterval" class="form-input" value="30" min="5">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">
+                                <svg class="label-icon"><use href="#icon-template"></use></svg>
+                                选择模板
+                            </label>
+                            <select id="heartbeatTemplate" class="template-select" onchange="selectHeartbeatForHeartbeat(this.value)">
+                                <option value="">-- 选择模板 --</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">
@@ -1431,19 +1448,21 @@
                         <input type="checkbox" id="reconnectEnabled">
                         启用自动重连
                     </label>
-                    <div class="form-group">
-                        <label class="form-label">
-                            <svg class="label-icon"><use href="#icon-refresh"></use></svg>
-                            最大重试次数
-                        </label>
-                        <input type="number" id="reconnectMaxAttempts" class="form-input" value="5" min="1">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">
-                            <svg class="label-icon"><use href="#icon-time"></use></svg>
-                            重连间隔（秒）
-                        </label>
-                        <input type="number" id="reconnectInterval" class="form-input" value="3" min="1">
+                    <div class="reconnect-settings">
+                        <div class="form-group inline">
+                            <label class="form-label">
+                                <svg class="label-icon"><use href="#icon-refresh"></use></svg>
+                                最大重试次数
+                            </label>
+                            <input type="number" id="reconnectMaxAttempts" class="form-input" value="5" min="1">
+                        </div>
+                        <div class="form-group inline">
+                            <label class="form-label">
+                                <svg class="label-icon"><use href="#icon-time"></use></svg>
+                                重连间隔（秒）
+                            </label>
+                            <input type="number" id="reconnectInterval" class="form-input" value="3" min="1">
+                        </div>
                     </div>
                 </div>
             </aside>
