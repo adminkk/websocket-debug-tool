@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(superpowers:brainstorming)",
+      "Skill(superpowers:executing-plans)",
+      "Skill(superpowers:writing-plans)",
+      "Skill(superpowers:subagent-driven-development)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Skill(superpowers:finishing-a-development-branch)",
+      "Bash(python:*)"
+    ]
+  }
+}

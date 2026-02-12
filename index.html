@@ -1,0 +1,2831 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 调试工具</title>
+    <style>
+        :root {
+            /* Dark theme (default) */
+            --bg-primary: #1e1e2e;
+            --bg-secondary: #282a36;
+            --bg-tertiary: #313244;
+            --border-color: #45475a;
+            --text-primary: #cdd6f4;
+            --text-secondary: #a6adc8;
+            --text-muted: #6c7086;
+            --accent: #89b4fa;
+            --success: #a6e3a1;
+            --warning: #f9e2af;
+            --error: #f38ba8;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #fafbfc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f0f2f5;
+            --border-color: #d1d5db;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --text-muted: #9ca3af;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --input-bg: #ffffff;
+            --shadow-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background: var(--border-color);
+        }
+
+        .theme-toggle svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .theme-toggle .sun-icon {
+            display: none;
+        }
+
+        [data-theme="light"] .theme-toggle .moon-icon {
+            display: none;
+        }
+
+        [data-theme="light"] .theme-toggle .sun-icon {
+            display: block;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-icon {
+            width: 24px;
+            height: 24px;
+            color: var(--accent);
+        }
+
+        .btn-icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .btn svg {
+            vertical-align: middle;
+            margin-right: 6px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .connection-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            animation: notificationSlide 0.3s ease;
+        }
+
+        .connection-notification.success {
+            display: flex;
+            background: var(--success);
+            color: var(--bg-primary);
+        }
+
+        .connection-notification.error {
+            display: flex;
+            background: var(--error);
+            color: white;
+        }
+
+        .connection-notification.warning {
+            display: flex;
+            background: var(--warning);
+            color: var(--bg-primary);
+        }
+
+        @keyframes notificationSlide {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .left-panel {
+            width: 320px;
+            min-width: 280px;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-icon {
+            width: 18px;
+            height: 18px;
+            color: var(--accent);
+        }
+
+        .label-icon {
+            width: 14px;
+            height: 14px;
+            vertical-align: middle;
+            margin-right: 4px;
+            color: var(--text-muted);
+        }
+
+        .modal-icon {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            margin-right: 8px;
+            color: var(--accent);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            line-height: 1;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-close svg {
+            display: block;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px var(--shadow-color, transparent);
+        }
+
+        .form-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        textarea.form-input {
+            min-height: 80px;
+            resize: vertical;
+            font-family: monospace;
+            line-height: 1.6;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 16px;
+        }
+
+        .radio-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+
+        .url-input-wrapper {
+            position: relative;
+        }
+
+        .url-input-wrapper .form-input {
+            padding-right: 36px;
+        }
+
+        .url-history-toggle {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .url-history-toggle:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .url-history-toggle svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .url-history-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-top: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .url-history-dropdown.active {
+            display: block;
+        }
+
+        .url-history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .url-history-item:last-child {
+            border-bottom: none;
+        }
+
+        .url-history-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .url-history-item-url {
+            flex: 1;
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .url-history-delete {
+            padding: 4px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+            opacity: 0;
+            transition: all 0.2s;
+            border-radius: 4px;
+        }
+
+        .url-history-item:hover .url-history-delete {
+            opacity: 1;
+        }
+
+        .url-history-delete:hover {
+            background: var(--error);
+            color: white;
+        }
+
+        .url-history-delete svg {
+            width: 14px;
+            height: 14px;
+            display: block;
+        }
+
+        .url-history-empty {
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: var(--bg-primary);
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px var(--shadow-color, rgba(0, 0, 0, 0.15));
+        }
+
+        .btn-danger {
+            background: var(--error);
+            color: white;
+            transition: all 0.2s ease;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-full {
+            width: 100%;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: var(--border-color);
+            margin: 20px 0;
+        }
+
+        .messages-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--border-color);
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        .connection-url {
+            font-size: 12px;
+            color: var(--text-muted);
+            max-width: 350px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .message-filters {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            justify-content: flex-end;
+        }
+
+        .filter-select {
+            padding: 8px 12px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .filter-search {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .filter-search-icon {
+            position: absolute;
+            left: 10px;
+            width: 14px;
+            height: 14px;
+            color: var(--text-muted);
+        }
+
+        .filter-input {
+            padding: 8px 12px 8px 32px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            outline: none;
+            width: 180px;
+            transition: all 0.2s ease;
+        }
+
+        .filter-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .filter-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .message-count {
+            color: var(--text-muted);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .clear-messages-btn {
+            padding: 6px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--error);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .clear-messages-btn:hover {
+            background: rgba(243, 139, 168, 0.2);
+        }
+
+        .clear-messages-btn .icon {
+            width: 16px;
+            height: 16px;
+        }
+
+        .message-item.hidden {
+            display: none;
+        }
+
+        .message-item.selected {
+            border: 2px solid var(--warning);
+            background: rgba(249, 226, 175, 0.2);
+        }
+
+        .status-icon.disconnected { color: var(--error); }
+        .status-icon.connecting { color: var(--warning); }
+        .status-icon.connected { color: var(--success); }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-dot.disconnected {
+            background: var(--text-muted);
+        }
+
+        .status-dot.connecting {
+            background: var(--warning);
+            animation: pulse 1s infinite;
+        }
+
+        .status-dot.connected {
+            background: var(--success);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .empty-state {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: var(--text-muted);
+        }
+
+        .message-item {
+            margin-bottom: 12px;
+            padding: 14px;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            box-shadow: 0 1px 3px var(--shadow-color, rgba(0, 0, 0, 0.1));
+            transition: box-shadow 0.2s ease;
+        }
+
+        .message-item:hover {
+            box-shadow: 0 4px 12px var(--shadow-color, rgba(0, 0, 0, 0.15));
+        }
+
+        .message-left {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+
+        .message-meta .format-btn {
+            margin-left: auto;
+        }
+
+        .message-meta .export-btn {
+            margin-left: 4px;
+        }
+
+        .message-time {
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .message-content {
+            position: relative;
+        }
+
+        .message-content pre {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-all;
+            margin: 0;
+        }
+
+        .message-type-badge {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .message-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .message-type-badge.send {
+            background: rgba(166, 227, 161, 0.2);
+            color: var(--success);
+        }
+
+        .message-type-badge.receive {
+            background: rgba(137, 180, 250, 0.2);
+            color: var(--accent);
+        }
+
+        .message-type-badge.system,
+        .message-type-badge.heartbeat {
+            background: rgba(249, 226, 175, 0.2);
+            color: var(--warning);
+        }
+
+        .format-btn {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: auto;
+        }
+
+        .format-btn:hover {
+            background: var(--border-color);
+        }
+
+        .format-btn.formatted {
+            background: var(--accent);
+            color: var(--bg-primary);
+            border-color: var(--accent);
+        }
+
+        .message-type-icon {
+            font-size: 12px;
+            font-weight: bold;
+            width: 16px;
+            text-align: center;
+        }
+
+        .message-type-icon.send { color: var(--success); }
+        .message-type-icon.receive { color: var(--accent); }
+        .message-type-icon.heartbeat { color: var(--error); }
+        .message-type-icon.system { color: var(--text-muted); }
+
+        .export-btn {
+            padding: 2px 8px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+
+        .export-btn:hover {
+            background: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .json-key { color: #fab387; }
+        .json-string { color: #a6e3a1; }
+        .json-number { color: #fab387; }
+        .json-boolean { color: #cba6f7; }
+        .json-null { color: #f38ba8; }
+
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .message-item:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-action-btn {
+            padding: 4px 8px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 4px;
+            color: var(--text-secondary);
+            font-size: 11px;
+            cursor: pointer;
+        }
+
+        .message-action-btn:hover {
+            background: var(--border-color);
+        }
+
+        .action-icon {
+            width: 14px;
+            height: 14px;
+            display: block;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .input-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message-template-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .template-select-input {
+            flex: 1;
+            padding: 10px 14px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px var(--shadow-color, transparent);
+        }
+
+        .template-select-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .message-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 14px;
+            background: var(--input-bg, var(--bg-secondary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px var(--shadow-color, transparent);
+        }
+
+        .message-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .message-textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .input-actions {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .input-hint {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #editTemplateModal {
+            z-index: 1001;
+        }
+
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            width: 500px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-overlay.active .modal {
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .modal-close:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .modal-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 16px 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .template-select {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px var(--shadow-color, transparent);
+        }
+
+        .template-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .template-search {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .template-search-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            color: var(--text-muted);
+        }
+
+        .template-search-input {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            background: var(--input-bg, var(--bg-tertiary));
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 2px var(--shadow-color, transparent);
+        }
+
+        .template-search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .template-search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .template-item {
+            display: flex;
+            align-items: center;
+            padding: 14px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+            transition: all 0.2s;
+        }
+
+        .template-item:hover {
+            background: var(--border-color);
+        }
+
+        .template-info {
+            flex: 1;
+        }
+
+        .template-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+
+        .template-preview {
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 300px;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toast-container {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .toast.success {
+            background: var(--success);
+            color: var(--bg-primary);
+        }
+
+        .toast.error {
+            background: var(--error);
+            color: white;
+        }
+
+        .toast.warning {
+            background: var(--warning);
+            color: var(--bg-primary);
+        }
+
+        .toast.info {
+            background: var(--accent);
+            color: var(--bg-primary);
+        }
+
+        .hidden-input {
+            display: none;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- SVG Icons -->
+    <svg style="display: none;">
+        <defs>
+            <!-- WebSocket Icon -->
+            <symbol id="icon-websocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+            </symbol>
+            <!-- Connection Icon -->
+            <symbol id="icon-connect" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                <line x1="12" y1="20" x2="12.01" y2="20"/>
+            </symbol>
+            <!-- Disconnect Icon -->
+            <symbol id="icon-disconnect" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </symbol>
+            <!-- Server Icon -->
+            <symbol id="icon-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+                <line x1="6" y1="6" x2="6.01" y2="6"/>
+                <line x1="6" y1="18" x2="6.01" y2="18"/>
+            </symbol>
+            <!-- Heart/Pulse Icon -->
+            <symbol id="icon-heart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+            </symbol>
+            <!-- Refresh/Retry Icon -->
+            <symbol id="icon-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </symbol>
+            <!-- Export Icon -->
+            <symbol id="icon-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+            </symbol>
+            <!-- Import Icon -->
+            <symbol id="icon-import" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </symbol>
+            <!-- Template Icon -->
+            <symbol id="icon-template" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                <line x1="3" y1="9" x2="21" y2="9"/>
+                <line x1="9" y1="21" x2="9" y2="9"/>
+            </symbol>
+            <!-- Settings Icon -->
+            <symbol id="icon-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </symbol>
+            <!-- Send Icon -->
+            <symbol id="icon-send" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </symbol>
+            <!-- Clear Icon -->
+            <symbol id="icon-clear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </symbol>
+            <!-- Time Icon -->
+            <symbol id="icon-time" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </symbol>
+            <!-- Save Icon -->
+            <symbol id="icon-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+            </symbol>
+            <!-- Delete Icon -->
+            <symbol id="icon-delete" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </symbol>
+            <!-- Close Icon -->
+            <symbol id="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </symbol>
+            <!-- Check Icon -->
+            <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+            </symbol>
+            <!-- Plus Icon -->
+            <symbol id="icon-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </symbol>
+            <!-- Edit Icon -->
+            <symbol id="icon-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </symbol>
+            <!-- History Icon -->
+            <symbol id="icon-history" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+            </symbol>
+            <!-- Chevron Down Icon -->
+            <symbol id="icon-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="6 9 12 15 18 9"/>
+            </symbol>
+            <!-- Search Icon -->
+            <symbol id="icon-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </symbol>
+            <!-- Moon Icon -->
+            <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </symbol>
+            <!-- Sun Icon -->
+            <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </symbol>
+        </defs>
+    </svg>
+
+    <!-- Icon helper function -->
+    <script>
+        function icon(name) {
+            return `<svg class="icon"><use href="#icon-${name}"></use></svg>`;
+        }
+    </script>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1>
+                <svg class="header-icon"><use href="#icon-websocket"></use></svg>
+                WebSocket 调试工具
+            </h1>
+            <div class="header-actions">
+                <button class="theme-toggle" onclick="toggleTheme()" title="切换主题">
+                    <svg class="moon-icon"><use href="#icon-moon"></use></svg>
+                    <svg class="sun-icon"><use href="#icon-sun"></use></svg>
+                </button>
+                <button class="btn btn-secondary" onclick="openAddTemplateModal()" title="新增模板">
+                    <svg class="btn-icon"><use href="#icon-plus"></use></svg>
+                    新增模板
+                </button>
+                <button class="btn btn-secondary" onclick="openTemplateModal()" title="模板管理">
+                    <svg class="btn-icon"><use href="#icon-template"></use></svg>
+                    模板管理
+                </button>
+                <button class="btn btn-secondary" onclick="exportConfig()" title="导出配置">
+                    <svg class="btn-icon"><use href="#icon-export"></use></svg>
+                    导出
+                </button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importInput').click()" title="导入配置">
+                    <svg class="btn-icon"><use href="#icon-import"></use></svg>
+                    导入
+                </button>
+                <input type="file" id="importInput" class="hidden-input" accept=".json" onchange="importConfig(event)">
+            </div>
+        </header>
+
+        <!-- 顶部连接通知 -->
+        <div class="connection-notification" id="connectionNotification"></div>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel -->
+            <aside class="left-panel">
+                <!-- 连接配置区域 -->
+                <div class="section">
+                    <h2 class="section-title">
+                        <svg class="section-icon"><use href="#icon-connect"></use></svg>
+                        连接配置
+                    </h2>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-server"></use></svg>
+                            服务器地址
+                        </label>
+                        <div class="url-input-wrapper">
+                            <input type="text" id="wsUrl" class="form-input"
+                                   placeholder="ws://websocket-server.kikisvip.cn"
+                                   value="ws://websocket-server.kikisvip.cn"
+                                   onfocus="showUrlHistory()"
+                                   oninput="filterUrlHistory()"
+                                   onkeydown="if(event.key==='Enter'){event.preventDefault();if(isConnected){disconnect();setTimeout(connect,100);}else{connect();}}"
+                                   onblur="setTimeout(() => hideUrlHistory(), 200)">
+                            <button class="url-history-toggle" onclick="toggleUrlHistory()">
+                                <svg class="icon"><use href="#icon-chevron-down"></use></svg>
+                            </button>
+                            <div class="url-history-dropdown" id="urlHistoryDropdown"></div>
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button id="connectBtn" class="btn btn-primary" onclick="toggleConnection()">
+                            <svg class="btn-icon"><use href="#icon-connect"></use></svg>
+                            连接
+                        </button>
+                        <button id="disconnectBtn" class="btn btn-secondary" onclick="disconnect()" disabled>
+                            <svg class="btn-icon"><use href="#icon-disconnect"></use></svg>
+                            断开
+                        </button>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- 心跳配置 -->
+                <div class="section">
+                    <h2 class="section-title">
+                        <svg class="section-icon"><use href="#icon-heart"></use></svg>
+                        心跳配置
+                    </h2>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="heartbeatEnabled">
+                        启用心跳
+                    </label>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-time"></use></svg>
+                            发送间隔（秒）
+                        </label>
+                        <input type="number" id="heartbeatInterval" class="form-input" value="30" min="5">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-template"></use></svg>
+                            选择模板
+                        </label>
+                        <select id="heartbeatTemplate" class="template-select" onchange="selectHeartbeatForHeartbeat(this.value)">
+                            <option value="">-- 选择模板 --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-edit"></use></svg>
+                            心跳内容
+                        </label>
+                        <textarea id="heartbeatMessage" class="form-input" placeholder='{"type":"ping"}'></textarea>
+                    </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- 自动重连 -->
+                <div class="section">
+                    <h2 class="section-title">
+                        <svg class="section-icon"><use href="#icon-refresh"></use></svg>
+                        自动重连
+                    </h2>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reconnectEnabled">
+                        启用自动重连
+                    </label>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-refresh"></use></svg>
+                            最大重试次数
+                        </label>
+                        <input type="number" id="reconnectMaxAttempts" class="form-input" value="5" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="label-icon"><use href="#icon-time"></use></svg>
+                            重连间隔（秒）
+                        </label>
+                        <input type="number" id="reconnectInterval" class="form-input" value="3" min="1">
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Right Panel -->
+            <section class="right-panel">
+                <div class="messages-toolbar">
+                    <div class="status-indicator">
+                        <svg class="status-icon disconnected" id="statusIcon"><use href="#icon-disconnect"></use></svg>
+                        <span class="status-dot disconnected" id="statusDot"></span>
+                        <span id="statusText">未连接</span>
+                        <span id="connectionUrl" class="connection-url"></span>
+                    </div>
+                    <div class="message-filters">
+                        <select id="messageTypeFilter" class="filter-select" onchange="filterMessages()">
+                            <option value="all">全部类型</option>
+                            <option value="send">发送</option>
+                            <option value="receive">接收</option>
+                            <option value="heartbeat">心跳</option>
+                        </select>
+                        <div class="filter-search">
+                            <svg class="filter-search-icon"><use href="#icon-search"></use></svg>
+                            <input type="text" id="messageSearch" class="filter-input" placeholder="关键字搜索..." oninput="filterMessages()">
+                        </div>
+                        <button class="clear-messages-btn" onclick="clearMessages()" title="清空消息">
+                            <svg class="icon"><use href="#icon-clear"></use></svg>
+                        </button>
+                        <span id="messageCount" class="message-count">消息数: 0</span>
+                    </div>
+                </div>
+
+                <div class="messages-container" id="messagesContainer">
+                    <div class="empty-state" id="emptyState">
+                        <div class="empty-state-text">暂无消息，连接到 WebSocket 服务器开始调试</div>
+                    </div>
+                </div>
+
+                <div class="input-area">
+                    <div class="input-container">
+                        <div class="message-template-row">
+                            <select id="sendTemplateSelect" class="template-select-input" onchange="selectSendTemplate(this.value)">
+                                <option value="">-- 选择模板 --</option>
+                            </select>
+                        </div>
+                        <textarea id="messageInput" class="message-textarea"
+                                  placeholder='{"type":"message","content":"Hello"}'
+                                  onkeydown="if(event.key==='Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }"></textarea>
+                        <div class="input-actions">
+                            <span class="input-hint">Enter 发送，Shift+Enter 换行</span>
+                            <button class="btn btn-primary" onclick="sendMessage()">
+                                <svg class="btn-icon"><use href="#icon-send"></use></svg>
+                                发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- 新增模板弹窗 -->
+    <div class="modal-overlay" id="addTemplateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <svg class="modal-icon"><use href="#icon-plus"></use></svg>
+                    新增模板
+                </h3>
+                <button class="modal-close" onclick="closeAddTemplateModal()">
+                    <svg class="btn-icon"><use href="#icon-close"></use></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">模板名称</label>
+                    <input type="text" id="addTemplateName" class="form-input" placeholder="例如: ping">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">模板内容</label>
+                    <textarea id="addTemplateContent" class="form-input" placeholder='{"type":"ping"} 或 普通文本'></textarea>
+                </div>
+                <button class="btn btn-primary btn-full" onclick="confirmAddTemplate()">
+                    <svg class="btn-icon"><use href="#icon-check"></use></svg>
+                    添加
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑模板弹窗 -->
+    <div class="modal-overlay" id="editTemplateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <svg class="modal-icon"><use href="#icon-edit"></use></svg>
+                    编辑模板
+                </h3>
+                <button class="modal-close" onclick="closeEditTemplateModal()">
+                    <svg class="btn-icon"><use href="#icon-close"></use></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editTemplateId">
+                <div class="form-group">
+                    <label class="form-label">模板名称</label>
+                    <input type="text" id="editTemplateName" class="form-input" placeholder="例如: ping">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">模板内容</label>
+                    <textarea id="editTemplateContent" class="form-input" placeholder='{"type":"ping"} 或 普通文本'></textarea>
+                </div>
+                <button class="btn btn-primary btn-full" onclick="confirmEditTemplate()">
+                    <svg class="btn-icon"><use href="#icon-check"></use></svg>
+                    保存
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 模板管理弹窗 -->
+    <div class="modal-overlay" id="templateModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">
+                    <svg class="modal-icon"><use href="#icon-template"></use></svg>
+                    模板管理
+                </h3>
+                <button class="modal-close" onclick="closeTemplateModal()">
+                    <svg class="btn-icon"><use href="#icon-close"></use></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="template-search">
+                    <svg class="template-search-icon"><use href="#icon-search"></use></svg>
+                    <input type="text" id="templateSearch" class="template-search-input" placeholder="搜索模板..." oninput="filterTemplates()">
+                </div>
+                <div class="template-list" id="templateList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // 全局状态
+        let ws = null;
+        let isConnected = false;
+        let isConnecting = false;
+        let connectionTimeout = null;
+        let messages = [];
+        let templates = [
+            { id: '1', name: 'Ping', content: '{"type":"ping"}' },
+            { id: '2', name: 'Pong', content: '{"type":"pong"}' },
+            { id: '3', name: 'Login', content: '{"event":"login","token":"your-token"}' }
+        ];
+        let heartbeatTimer = null;
+        let reconnectTimer = null;
+        let reconnectAttempts = 0;
+        let autoScroll = true;
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            loadFromStorage();
+            renderTemplates();
+            updateTemplateSelect();
+            renderUrlHistory();
+
+            // 消息容器滚动事件 - 用户手动滚动时停止自动滚动
+            const messagesContainer = document.getElementById('messagesContainer');
+            messagesContainer.addEventListener('scroll', () => {
+                const { scrollTop, scrollHeight, clientHeight } = messagesContainer;
+                // 如果用户滚动到接近底部，恢复自动滚动
+                if (scrollHeight - scrollTop - clientHeight < 50) {
+                    autoScroll = true;
+                } else {
+                    autoScroll = false;
+                }
+            });
+
+            // 心跳配置修改后实时生效
+            document.getElementById('heartbeatEnabled').addEventListener('change', () => {
+                if (document.getElementById('heartbeatEnabled').checked) {
+                    restartHeartbeatIfConnected();
+                } else {
+                    stopHeartbeat();
+                }
+                saveToStorage();
+            });
+            document.getElementById('heartbeatInterval').addEventListener('change', restartHeartbeatIfConnected);
+            document.getElementById('heartbeatMessage').addEventListener('input', restartHeartbeatIfConnected);
+
+            // 重连配置修改后实时生效
+            document.getElementById('reconnectEnabled').addEventListener('change', () => {
+                if (document.getElementById('reconnectEnabled').checked) {
+                    restartReconnectTimer();
+                } else {
+                    stopReconnectTimer();
+                }
+                saveToStorage();
+            });
+            document.getElementById('reconnectMaxAttempts').addEventListener('change', restartReconnectTimer);
+            document.getElementById('reconnectInterval').addEventListener('change', restartReconnectTimer);
+
+            // URL 地址变更时如果已连接则自动断开并重新连接
+            document.getElementById('wsUrl').addEventListener('input', () => {
+                if (isConnected) {
+                    disconnect();
+                    setTimeout(() => {
+                        const url = document.getElementById('wsUrl').value.trim();
+                        if (url) {
+                            connect();
+                        }
+                    }, 100);
+                }
+            });
+        });
+
+        // 主题切换
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            saveToStorage();
+        }
+
+        // 连接管理
+        function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        // URL 历史记录管理
+        const MAX_URL_HISTORY = 20;
+
+        function getUrlHistory() {
+            try {
+                return JSON.parse(localStorage.getItem('ws-url-history') || '[]');
+            } catch {
+                return [];
+            }
+        }
+
+        function saveUrlToHistory(url) {
+            if (!url) return;
+            let history = getUrlHistory();
+            // 移除已存在的相同 URL
+            history = history.filter(u => u !== url);
+            // 添加到开头
+            history.unshift(url);
+            // 限制数量
+            if (history.length > MAX_URL_HISTORY) {
+                history = history.slice(0, MAX_URL_HISTORY);
+            }
+            localStorage.setItem('ws-url-history', JSON.stringify(history));
+        }
+
+        function removeUrlFromHistory(url) {
+            let history = getUrlHistory();
+            history = history.filter(u => u !== url);
+            localStorage.setItem('ws-url-history', JSON.stringify(history));
+            renderUrlHistory();
+        }
+
+        function renderUrlHistory() {
+            const dropdown = document.getElementById('urlHistoryDropdown');
+            const history = getUrlHistory();
+
+            if (history.length === 0) {
+                dropdown.innerHTML = '<div class="url-history-empty">暂无历史记录</div>';
+                return;
+            }
+
+            dropdown.innerHTML = history.map(url => `
+                <div class="url-history-item" onclick="selectUrl('${escapeHtml(url)}')">
+                    <span class="url-history-item-url">${escapeHtml(url)}</span>
+                    <button class="url-history-delete" onclick="event.stopPropagation(); removeUrlFromHistory('${escapeHtml(url)}')" title="删除">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function showUrlHistory() {
+            const dropdown = document.getElementById('urlHistoryDropdown');
+            renderUrlHistory();
+            dropdown.classList.add('active');
+        }
+
+        function hideUrlHistory() {
+            document.getElementById('urlHistoryDropdown').classList.remove('active');
+        }
+
+        function toggleUrlHistory() {
+            const dropdown = document.getElementById('urlHistoryDropdown');
+            if (dropdown.classList.contains('active')) {
+                hideUrlHistory();
+            } else {
+                showUrlHistory();
+            }
+        }
+
+        function selectUrl(url) {
+            document.getElementById('wsUrl').value = url;
+            hideUrlHistory();
+        }
+
+        function filterUrlHistory() {
+            const input = document.getElementById('wsUrl');
+            const filter = input.value.toLowerCase();
+            const dropdown = document.getElementById('urlHistoryDropdown');
+            const items = dropdown.querySelectorAll('.url-history-item');
+
+            items.forEach(item => {
+                const text = item.querySelector('.url-history-item-url').textContent.toLowerCase();
+                item.style.display = text.includes(filter) ? 'flex' : 'none';
+            });
+        }
+
+        function connect() {
+            const urlInput = document.getElementById('wsUrl');
+            let url = urlInput.value.trim();
+            const originalUrl = url; // 保存原始 URL
+
+            if (!url) {
+                showToast('请输入服务器地址', 'error');
+                return;
+            }
+
+            // 如果正在连接中，先取消
+            if (isConnecting) {
+                showToast('正在连接中...', 'warning');
+                return;
+            }
+
+            // 如果已连接，先断开
+            if (isConnected) {
+                disconnect();
+            }
+
+            // 确保 URL 包含协议前缀
+            if (!url.startsWith('ws://') && !url.startsWith('wss://')) {
+                url = `wss://${url}`;
+            }
+
+            try {
+                isConnecting = true;
+                updateConnectionUI('connecting');
+
+                ws = new WebSocket(url);
+
+                // 设置连接超时（30秒）
+                connectionTimeout = setTimeout(() => {
+                    if (isConnecting) {
+                        isConnecting = false;
+                        if (ws) {
+                            ws.close();
+                            ws = null;
+                        }
+                        updateConnectionUI(false);
+                        showConnectionNotification('连接超时，请检查网络', 'error');
+                    }
+                }, 30000);
+
+                ws.onopen = () => {
+                    isConnecting = false;
+                    if (connectionTimeout) {
+                        clearTimeout(connectionTimeout);
+                        connectionTimeout = null;
+                    }
+                    reconnectAttempts = 0;
+                    isConnected = true;
+                    updateConnectionUI(true);
+                    showConnectionNotification('连接成功', 'success');
+                    startHeartbeat();
+                    saveToStorage();
+                    // 连接成功后才保存到历史记录
+                    saveUrlToHistory(originalUrl);
+                };
+
+                ws.onmessage = (event) => {
+                    handleMessage(event.data);
+                };
+
+                ws.onclose = (event) => {
+                    isConnecting = false;
+                    if (connectionTimeout) {
+                        clearTimeout(connectionTimeout);
+                        connectionTimeout = null;
+                    }
+                    stopHeartbeat();
+                    isConnected = false;
+                    updateConnectionUI(false);
+
+                    const reason = event.reason ? ` (${event.reason})` : '';
+                    addSystemMessage(`连接已关闭${reason} (code: ${event.code})`);
+
+                    // 自动重连
+                    if (document.getElementById('reconnectEnabled').checked) {
+                        const maxAttempts = parseInt(document.getElementById('reconnectMaxAttempts').value);
+                        if (reconnectAttempts < maxAttempts) {
+                            const interval = parseInt(document.getElementById('reconnectInterval').value) * 1000;
+                            reconnectAttempts++;
+                            showConnectionNotification(`${interval / 1000}秒后重连 (${reconnectAttempts}/${maxAttempts})`, 'warning');
+                            reconnectTimer = setTimeout(() => {
+                                if (!isConnected && !isConnecting) {
+                                    connect();
+                                }
+                            }, interval);
+                        } else {
+                            addSystemMessage('已达到最大重试次数', 'error');
+                        }
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    // onclose 会处理连接失败的情况，这里不需要额外处理
+                };
+
+            } catch (error) {
+                isConnecting = false;
+                updateConnectionUI(false);
+                showConnectionNotification('连接失败: ' + error.message, 'error');
+            }
+        }
+
+        function disconnect() {
+            // 清除连接超时定时器
+            if (connectionTimeout) {
+                clearTimeout(connectionTimeout);
+                connectionTimeout = null;
+            }
+            stopHeartbeat();
+            stopReconnectTimer();
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            isConnected = false;
+            isConnecting = false;
+            reconnectAttempts = 0;
+            updateConnectionUI(false);
+        }
+
+        function stopReconnectTimer() {
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+        }
+
+        function restartReconnectTimer() {
+            if (!isConnected && document.getElementById('reconnectEnabled').checked) {
+                stopReconnectTimer();
+                const maxAttempts = parseInt(document.getElementById('reconnectMaxAttempts').value);
+                if (reconnectAttempts < maxAttempts) {
+                    const interval = parseInt(document.getElementById('reconnectInterval').value) * 1000;
+                    showConnectionNotification(`${interval / 1000}秒后重连 (${reconnectAttempts}/${maxAttempts})`, 'warning');
+                    reconnectTimer = setTimeout(() => {
+                        if (!isConnected) {
+                            connect();
+                        }
+                    }, interval);
+                }
+            }
+        }
+
+        function updateConnectionUI(status) {
+            const statusDot = document.getElementById('statusDot');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            const connectionUrl = document.getElementById('connectionUrl');
+            const connectBtn = document.getElementById('connectBtn');
+            const disconnectBtn = document.getElementById('disconnectBtn');
+
+            // 添加 null 检查
+            if (!statusDot || !statusIcon || !statusText || !connectionUrl || !connectBtn || !disconnectBtn) return;
+
+            const statusClass = status === true ? 'connected' : status;
+            statusDot.className = 'status-dot ' + statusClass;
+            statusIcon.className = 'status-icon ' + statusClass;
+
+            if (status === true) {
+                statusIcon.innerHTML = '<use href="#icon-connect"></use>';
+                statusText.textContent = '已连接';
+                connectionUrl.textContent = document.getElementById('wsUrl').value;
+                connectBtn.textContent = '连接';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                disconnectBtn.classList.add('btn-danger');
+            } else if (status === 'connecting') {
+                statusIcon.innerHTML = '<use href="#icon-refresh"></use>';
+                statusText.textContent = '连接中...';
+                connectionUrl.textContent = '';
+                connectBtn.innerHTML = '<svg class="btn-icon"><use href="#icon-refresh"></use></svg> 连接中...';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = true;
+                disconnectBtn.classList.remove('btn-danger');
+            } else {
+                statusIcon.innerHTML = '<use href="#icon-disconnect"></use>';
+                statusText.textContent = '未连接';
+                connectionUrl.textContent = '';
+                connectBtn.innerHTML = '<svg class="btn-icon"><use href="#icon-connect"></use></svg> 连接';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                disconnectBtn.classList.remove('btn-danger');
+            }
+        }
+
+        // 消息处理
+        function handleMessage(data) {
+            addMessage('receive', data);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+
+            if (!message) {
+                showToast('请输入消息内容', 'error');
+                return;
+            }
+
+            if (!isConnected || !ws) {
+                showToast('请先连接到服务器', 'error');
+                return;
+            }
+
+            try {
+                ws.send(message);
+                addMessage('send', message);
+                input.value = '';
+            } catch (error) {
+                showToast('发送失败: ' + error.message, 'error');
+            }
+        }
+
+        function addMessage(type, content) {
+            const container = document.getElementById('messagesContainer');
+            const emptyState = document.getElementById('emptyState');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false }) + '.' + now.getMilliseconds().toString().padStart(3, '0');
+
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const messageObj = {
+                id: Date.now() + Math.random(),
+                type,
+                content,
+                timestamp: now.getTime(),
+                timeString: timeStr
+            };
+            messages.push(messageObj);
+
+            const isJson = tryParseJson(content);
+            const rawContent = escapeHtml(content);
+            let formattedContent = rawContent;
+            if (isJson) {
+                try {
+                    formattedContent = syntaxHighlightJson(JSON.stringify(JSON.parse(content), null, 2));
+                } catch (e) {}
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message-item';
+            messageEl.dataset.type = type;
+            messageEl.dataset.rawContent = rawContent;
+            messageEl.dataset.formattedContent = formattedContent;
+            messageEl.dataset.isFormatted = 'false';
+            messageEl.onclick = function() { toggleMessageSelect(this); };
+            const typeLabels = { send: '发送', receive: '接收', heartbeat: '心跳', system: '系统' };
+            messageEl.innerHTML = `
+                <div class="message-left">
+                    <div class="message-meta">
+                        <span class="message-time">${timeStr}</span>
+                        <span class="message-type-icon ${type}" title="${typeLabels[type]}">${type === 'send' ? '↑' : type === 'receive' ? '↓' : type === 'heartbeat' ? '♥' : '•'}</span>
+                        ${isJson ? `<button class="format-btn" onclick="toggleFormat(this)">格式化</button>` : ''}
+                    </div>
+                    <div class="message-content">
+                        <pre>${rawContent}</pre>
+                    </div>
+                </div>
+                <div class="message-right">
+                    <button class="export-btn" onclick="exportSingleMessage(this, 'json')">JSON</button>
+                    <button class="export-btn" onclick="exportSingleMessage(this, 'csv')">CSV</button>
+                    <span class="message-type-badge ${type}">${typeLabels[type]}</span>
+                </div>
+            `;
+
+            container.appendChild(messageEl);
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+            filterMessages();
+        }
+
+        function toggleFormat(btn) {
+            const messageItem = btn.closest('.message-item');
+            const rawContent = escapeHtml(content);
+            let formattedContent = rawContent;
+            if (isJson) {
+                try {
+                    formattedContent = syntaxHighlightJson(JSON.stringify(JSON.parse(content), null, 2));
+                } catch (e) {}
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message-item';
+            messageEl.dataset.type = type;
+            messageEl.dataset.rawContent = rawContent;
+            messageEl.dataset.formattedContent = formattedContent;
+            messageEl.dataset.isFormatted = 'false';
+            messageEl.onclick = function() { toggleMessageSelect(this); };
+            const typeLabels = { send: '发送', receive: '接收', heartbeat: '心跳', system: '系统' };
+            messageEl.innerHTML = `
+                <div class="message-left">
+                    <div class="message-meta">
+                        <span class="message-time">${timeStr}</span>
+                        <span class="message-type-icon ${type}" title="${typeLabels[type]}">${type === 'send' ? '↑' : type === 'receive' ? '↓' : type === 'heartbeat' ? '♥' : '•'}</span>
+                        ${isJson ? `<button class="format-btn" onclick="toggleFormat(this)">格式化</button>` : ''}
+                        <button class="export-btn" onclick="exportSingleMessage(this, 'json')">JSON</button>
+                        <button class="export-btn" onclick="exportSingleMessage(this, 'csv')">CSV</button>
+                    </div>
+                    <div class="message-content">
+                        <pre>${rawContent}</pre>
+                    </div>
+                </div>
+                <span class="message-type-badge ${type}">${typeLabels[type]}</span>
+            `;
+
+            container.appendChild(messageEl);
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+            filterMessages();
+        }
+
+        function toggleFormat(btn) {
+            const messageItem = btn.closest('.message-item');
+            const content = messageItem.querySelector('.message-content pre');
+            const isFormatted = messageItem.dataset.isFormatted === 'true';
+
+            if (isFormatted) {
+                content.innerHTML = messageItem.dataset.rawContent;
+                messageItem.dataset.isFormatted = 'false';
+                btn.textContent = '格式化';
+                btn.classList.remove('formatted');
+            } else {
+                content.innerHTML = messageItem.dataset.formattedContent;
+                messageItem.dataset.isFormatted = 'true';
+                btn.textContent = '还原';
+                btn.classList.add('formatted');
+            }
+        }
+
+        function addSystemMessage(text, type = 'system') {
+            const container = document.getElementById('messagesContainer');
+            const emptyState = document.getElementById('emptyState');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour12: false }) + '.' + now.getMilliseconds().toString().padStart(3, '0');
+
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            const isJson = tryParseJson(text);
+            const rawContent = escapeHtml(text);
+            let formattedContent = rawContent;
+            if (isJson) {
+                try {
+                    formattedContent = syntaxHighlightJson(JSON.stringify(JSON.parse(text), null, 2));
+                } catch (e) {}
+            }
+
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message-item';
+            messageEl.dataset.type = type;
+            messageEl.dataset.rawContent = rawContent;
+            messageEl.dataset.formattedContent = formattedContent;
+            messageEl.dataset.isFormatted = 'false';
+            messageEl.onclick = function() { toggleMessageSelect(this); };
+            const typeLabels = { send: '发送', receive: '接收', heartbeat: '心跳', system: '系统' };
+            messageEl.innerHTML = `
+                <div class="message-left">
+                    <div class="message-meta">
+                        <span class="message-time">${timeStr}</span>
+                        <span class="message-type-icon ${type}" title="${typeLabels[type]}">${type === 'send' ? '↑' : type === 'receive' ? '↓' : type === 'heartbeat' ? '♥' : '•'}</span>
+                        ${isJson ? `<button class="format-btn" onclick="toggleFormat(this)">格式化</button>` : ''}
+                    </div>
+                    <div class="message-content">
+                        <pre>${rawContent}</pre>
+                    </div>
+                </div>
+                <div class="message-right">
+                    <button class="export-btn" onclick="exportSingleMessage(this, 'json')">JSON</button>
+                    <button class="export-btn" onclick="exportSingleMessage(this, 'csv')">CSV</button>
+                    <span class="message-type-badge ${type}">${typeLabels[type]}</span>
+                </div>
+            `;
+
+            container.appendChild(messageEl);
+            if (autoScroll) {
+                container.scrollTop = container.scrollHeight;
+            }
+            filterMessages();
+        }
+
+        function clearMessages() {
+            messages = [];
+            document.getElementById('messagesContainer').innerHTML = `
+                <div class="empty-state" id="emptyState">
+                    <div class="empty-state-text">暂无消息</div>
+                </div>
+            `;
+            autoScroll = true;
+            updateMessageCount();
+        }
+
+        function updateMessageCount() {
+            const visibleCount = document.querySelectorAll('.message-item:not(.hidden)').length;
+            const totalCount = document.querySelectorAll('.message-item').length;
+            document.getElementById('messageCount').textContent = `消息数: ${visibleCount}/${totalCount}`;
+        }
+
+        function filterMessages() {
+            const typeFilter = document.getElementById('messageTypeFilter').value;
+            const searchFilter = document.getElementById('messageSearch').value.toLowerCase();
+            const messageItems = document.querySelectorAll('.message-item');
+
+            messageItems.forEach(item => {
+                const type = item.dataset.type;
+                const content = (item.dataset.rawContent || '').toLowerCase();
+                const typeMatch = typeFilter === 'all' || type === typeFilter;
+                const searchMatch = !searchFilter || content.includes(searchFilter);
+
+                if (typeMatch && searchMatch) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            updateMessageCount();
+
+            // 处理空状态显示
+            const visibleItems = document.querySelectorAll('.message-item:not(.hidden)');
+            const emptyState = document.getElementById('emptyState');
+            if (visibleItems.length === 0 && messages.length > 0) {
+                if (!emptyState) {
+                    const newEmptyState = document.createElement('div');
+                    newEmptyState.className = 'empty-state';
+                    newEmptyState.id = 'emptyState';
+                    newEmptyState.innerHTML = '<div class="empty-state-text">没有匹配的消息</div>';
+                    document.getElementById('messagesContainer').appendChild(newEmptyState);
+                }
+            } else if (visibleItems.length > 0 && emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        function toggleMessageSelect(element) {
+            if (element.classList.contains('selected')) {
+                element.classList.remove('selected');
+            } else {
+                document.querySelectorAll('.message-item.selected').forEach(item => {
+                    item.classList.remove('selected');
+                });
+                element.classList.add('selected');
+            }
+        }
+
+        function exportSingleMessage(btn, format) {
+            const messageItem = btn.closest('.message-item');
+            const type = messageItem.dataset.type;
+            const content = messageItem.dataset.rawContent || messageItem.querySelector('.message-content pre').textContent;
+            const timeStr = messageItem.querySelector('.message-time').textContent;
+
+            const typeLabels = { send: '发送', receive: '接收', heartbeat: '心跳', system: '系统' };
+            const messageData = {
+                type: typeLabels[type] || type,
+                time: timeStr,
+                content: content
+            };
+
+            let blob, filename;
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+            if (format === 'json') {
+                try {
+                    const parsed = JSON.parse(content);
+                    messageData.parsedContent = parsed;
+                    blob = new Blob([JSON.stringify(messageData, null, 2)], { type: 'application/json' });
+                } catch (e) {
+                    blob = new Blob([JSON.stringify(messageData, null, 2)], { type: 'application/json' });
+                }
+                filename = `ws-message-${timestamp}.json`;
+            } else if (format === 'csv') {
+                const escapedContent = content.replace(/"/g, '""');
+                const csvContent = `Type,Time,Content\n"${typeLabels[type] || type}","${timeStr}","${escapedContent}"`;
+                blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                filename = `ws-message-${timestamp}.csv`;
+            }
+
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast(`已导出为 ${format.toUpperCase()}`, 'success');
+            }
+        }
+
+        function copyMessage(id) {
+            const msg = messages.find(m => m.id === id);
+            if (msg) {
+                navigator.clipboard.writeText(msg.content).then(() => {
+                    showToast('已复制到剪贴板', 'success');
+                });
+            }
+        }
+
+        // JSON 处理
+        function tryParseJson(str) {
+            try {
+                JSON.parse(str);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function formatJson(jsonStr) {
+            try {
+                const obj = JSON.parse(jsonStr);
+                return JSON.stringify(obj, null, 2);
+            } catch (e) {
+                return jsonStr;
+            }
+        }
+
+        function syntaxHighlightJson(jsonStr) {
+            try {
+                const obj = JSON.parse(jsonStr);
+                return formatJsonWithHighlight(obj);
+            } catch (e) {
+                return escapeHtml(jsonStr);
+            }
+        }
+
+        function formatJsonWithHighlight(obj, indent = 0) {
+            const spaces = '  '.repeat(indent);
+
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) return '[]';
+                return '[\n' + obj.map(item =>
+                    spaces + '  ' + formatJsonWithHighlight(item, indent + 1)
+                ).join(',\n') + '\n' + spaces + ']';
+            }
+
+            if (typeof obj === 'object' && obj !== null) {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) return '{}';
+                return '{\n' + keys.map(key => {
+                    const value = obj[key];
+                    const highlightedValue = formatJsonWithHighlight(value, indent + 1);
+                    if (typeof value === 'string') {
+                        return `${spaces}  <span class="json-key">"${escapeHtml(key)}"</span>: <span class="json-string">"${escapeHtml(value)}"</span>`;
+                    } else if (typeof value === 'number') {
+                        return `${spaces}  <span class="json-key">"${escapeHtml(key)}"</span>: <span class="json-number">${value}</span>`;
+                    } else if (typeof value === 'boolean') {
+                        return `${spaces}  <span class="json-key">"${escapeHtml(key)}"</span>: <span class="json-boolean">${value}</span>`;
+                    } else if (value === null) {
+                        return `${spaces}  <span class="json-key">"${escapeHtml(key)}"</span>: <span class="json-null">null</span>`;
+                    } else {
+                        return `${spaces}  <span class="json-key">"${escapeHtml(key)}"</span>: ${highlightedValue}`;
+                    }
+                }).join(',\n') + '\n' + spaces + '}';
+            }
+
+            return escapeHtml(String(obj));
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // 自动选中第一个模板并填充心跳内容
+        function autoSelectFirstTemplate() {
+            const firstTemplate = document.querySelector('#heartbeatTemplate option:not([value=""])');
+            if (firstTemplate) {
+                selectHeartbeatForHeartbeat(firstTemplate.value);
+            }
+        }
+
+        // 心跳功能
+        function startHeartbeat() {
+            if (!document.getElementById('heartbeatEnabled').checked) return;
+
+            const interval = parseInt(document.getElementById('heartbeatInterval').value) * 1000;
+            const message = getHeartbeatMessage();
+
+            if (!message) {
+                showToast('请先选择或添加消息模板', 'warning');
+                // 自动选中第一个模板
+                autoSelectFirstTemplate();
+                // 尝试重新启动心跳
+                const newMessage = getHeartbeatMessage();
+                if (newMessage) {
+                    heartbeatTimer = setInterval(() => {
+                        if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+                            try {
+                                ws.send(newMessage);
+                                addMessage('heartbeat', newMessage);
+                            } catch (error) {
+                                console.error('Heartbeat error:', error);
+                            }
+                        }
+                    }, interval);
+                }
+                return;
+            }
+
+            heartbeatTimer = setInterval(() => {
+                if (isConnected && ws && ws.readyState === WebSocket.OPEN) {
+                    try {
+                        ws.send(message);
+                        addMessage('heartbeat', message);
+                    } catch (error) {
+                        console.error('Heartbeat error:', error);
+                    }
+                }
+            }, interval);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        function getHeartbeatMessage() {
+            return document.getElementById('heartbeatMessage').value.trim() || null;
+        }
+
+        // 选择模板后自动填充到心跳内容输入框
+        function selectHeartbeatForHeartbeat(templateId) {
+            const template = templates.find(t => t.id === templateId);
+            if (template) {
+                document.getElementById('heartbeatMessage').value = template.content;
+                restartHeartbeatIfConnected();
+            }
+        }
+
+        function restartHeartbeatIfConnected() {
+            if (isConnected) {
+                stopHeartbeat();
+                startHeartbeat();
+            }
+        }
+
+        // 新增模板
+        function openAddTemplateModal() {
+            document.getElementById('addTemplateModal').classList.add('active');
+            document.getElementById('addTemplateName').value = '';
+            document.getElementById('addTemplateContent').value = '';
+            document.getElementById('addTemplateName').focus();
+        }
+
+        function closeAddTemplateModal() {
+            document.getElementById('addTemplateModal').classList.remove('active');
+        }
+
+        function confirmAddTemplate() {
+            const name = document.getElementById('addTemplateName').value.trim();
+            const content = document.getElementById('addTemplateContent').value.trim();
+
+            if (!name || !content) {
+                showToast('请填写模板名称和内容', 'error');
+                return;
+            }
+
+            templates.push({
+                id: Date.now().toString(),
+                name,
+                content
+            });
+
+            closeAddTemplateModal();
+            renderTemplates();
+            updateTemplateSelect();
+            saveToStorage();
+            showToast('模板已添加', 'success');
+        }
+
+        // 编辑模板
+        function openEditTemplateModal(id) {
+            const template = templates.find(t => t.id === id);
+            if (!template) return;
+
+            // 先关闭模板管理弹窗，避免层级遮挡
+            closeTemplateModal();
+
+            document.getElementById('editTemplateId').value = id;
+            document.getElementById('editTemplateName').value = template.name;
+            document.getElementById('editTemplateContent').value = template.content;
+            document.getElementById('editTemplateModal').classList.add('active');
+        }
+
+        function closeEditTemplateModal() {
+            document.getElementById('editTemplateModal').classList.remove('active');
+        }
+
+        function confirmEditTemplate() {
+            const id = document.getElementById('editTemplateId').value;
+            const name = document.getElementById('editTemplateName').value.trim();
+            const content = document.getElementById('editTemplateContent').value.trim();
+
+            if (!name || !content) {
+                showToast('请填写模板名称和内容', 'error');
+                return;
+            }
+
+            const templateIndex = templates.findIndex(t => t.id === id);
+            if (templateIndex === -1) return;
+
+            templates[templateIndex] = { id, name, content };
+
+            closeEditTemplateModal();
+            renderTemplates();
+            updateTemplateSelect();
+            saveToStorage();
+            showToast('模板已更新', 'success');
+        }
+
+        // 模板管理
+        function openTemplateModal() {
+            document.getElementById('templateModal').classList.add('active');
+            renderTemplates();
+            updateTemplateSelect();
+        }
+
+        function closeTemplateModal() {
+            document.getElementById('templateModal').classList.remove('active');
+        }
+
+        function deleteTemplate(id) {
+            templates = templates.filter(t => t.id !== id);
+            renderTemplates();
+            updateTemplateSelect();
+            saveToStorage();
+            showToast('模板已删除', 'success');
+        }
+
+        function useTemplate(id) {
+            const template = templates.find(t => t.id === id);
+            if (template) {
+                document.getElementById('messageInput').value = template.content;
+                sendMessage();
+            }
+        }
+
+        function renderTemplates() {
+            const container = document.getElementById('templateList');
+            const searchInput = document.getElementById('templateSearch');
+            const searchTerm = (searchInput ? searchInput.value : '').toLowerCase();
+
+            // 过滤模板
+            const filteredTemplates = templates.filter(t =>
+                t.name.toLowerCase().includes(searchTerm) ||
+                t.content.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredTemplates.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-text">暂无模板</div></div>';
+                return;
+            }
+
+            container.innerHTML = filteredTemplates.map(t => `
+                <div class="template-item" onclick="useTemplate('${t.id}')">
+                    <div class="template-info">
+                        <div class="template-name">${escapeHtml(t.name)}</div>
+                        <div class="template-preview">${escapeHtml(t.content)}</div>
+                    </div>
+                    <div class="template-actions">
+                        <button class="message-action-btn" onclick="event.stopPropagation(); openEditTemplateModal('${t.id}')" title="编辑">
+                            <svg class="action-icon"><use href="#icon-edit"></use></svg>
+                        </button>
+                        <button class="message-action-btn" onclick="event.stopPropagation(); deleteTemplate('${t.id}')" title="删除">
+                            <svg class="action-icon"><use href="#icon-delete"></use></svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterTemplates() {
+            renderTemplates();
+        }
+
+        function updateTemplateSelect() {
+            const heartbeatSelect = document.getElementById('heartbeatTemplate');
+            const sendSelect = document.getElementById('sendTemplateSelect');
+            const options = `<option value="">-- 选择模板 --</option>${templates.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}`;
+
+            // 先保存当前选中的值
+            const currentHeartbeatValue = heartbeatSelect.value;
+            const currentSendValue = sendSelect.value;
+
+            heartbeatSelect.innerHTML = options;
+            sendSelect.innerHTML = options;
+
+            // 恢复选中的值（如果存在有效选项）
+            if (templates.some(t => t.id === currentHeartbeatValue)) {
+                heartbeatSelect.value = currentHeartbeatValue;
+            }
+            if (templates.some(t => t.id === currentSendValue)) {
+                sendSelect.value = currentSendValue;
+            }
+
+            // 如果没有选中有效模板，自动选中第一个
+            const select = document.getElementById('heartbeatTemplate');
+            if (templates.length > 0 && (!select.value || !templates.some(t => t.id === select.value))) {
+                select.value = templates[0].id;
+                selectHeartbeatForHeartbeat(templates[0].id);
+            }
+        }
+
+        function selectSendTemplate(templateId) {
+            const template = templates.find(t => t.id === templateId);
+            if (template) {
+                document.getElementById('messageInput').value = template.content;
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('确定要清除所有数据吗？此操作不可恢复。')) {
+                localStorage.removeItem('ws-debug-config');
+                localStorage.removeItem('ws-url-history');
+                templates = [
+                    { id: '1', name: 'Ping', content: '{"type":"ping"}' },
+                    { id: '2', name: 'Pong', content: '{"type":"pong"}' },
+                    { id: '3', name: 'Login', content: '{"event":"login","token":"your-token"}' }
+                ];
+                document.getElementById('wsUrl').value = '';
+                // 重置主题为深色
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('heartbeatEnabled').checked = false;
+                document.getElementById('heartbeatInterval').value = 30;
+                renderUrlHistory();
+                document.getElementById('heartbeatMessage').value = '';
+                document.getElementById('reconnectEnabled').checked = false;
+                document.getElementById('reconnectMaxAttempts').value = 5;
+                document.getElementById('reconnectInterval').value = 3;
+                renderTemplates();
+                updateTemplateSelect();
+                showToast('所有数据已清除', 'success');
+            }
+        }
+
+        // 导入导出
+        function exportConfig() {
+            const config = {
+                url: document.getElementById('wsUrl').value,
+                theme: document.documentElement.getAttribute('data-theme') || 'dark',
+                heartbeat: {
+                    enabled: document.getElementById('heartbeatEnabled').checked,
+                    interval: document.getElementById('heartbeatInterval').value,
+                    templateId: document.getElementById('heartbeatTemplate').value,
+                    message: document.getElementById('heartbeatMessage').value
+                },
+                reconnect: {
+                    enabled: document.getElementById('reconnectEnabled').checked,
+                    maxAttempts: document.getElementById('reconnectMaxAttempts').value,
+                    interval: document.getElementById('reconnectInterval').value
+                },
+                templates: templates,
+                urlHistory: getUrlHistory()
+            };
+
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `websocket-config-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('配置已导出', 'success');
+        }
+
+        function importConfig(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const config = JSON.parse(e.target.result);
+
+                    if (config.url) document.getElementById('wsUrl').value = config.url;
+                    // 导入主题
+                    if (config.theme) {
+                        document.documentElement.setAttribute('data-theme', config.theme);
+                    }
+                    if (config.heartbeat) {
+                        document.getElementById('heartbeatEnabled').checked = config.heartbeat.enabled;
+                        document.getElementById('heartbeatInterval').value = config.heartbeat.interval || 30;
+                        document.getElementById('heartbeatMessage').value = config.heartbeat.message || '';
+                        if (config.heartbeat.templateId) {
+                            document.getElementById('heartbeatTemplate').value = config.heartbeat.templateId;
+                        }
+                    }
+                    if (config.reconnect) {
+                        document.getElementById('reconnectEnabled').checked = config.reconnect.enabled;
+                        document.getElementById('reconnectMaxAttempts').value = config.reconnect.maxAttempts || 5;
+                        document.getElementById('reconnectInterval').value = config.reconnect.interval || 3;
+                    }
+                    if (config.templates) {
+                        templates = config.templates;
+                        renderTemplates();
+                        updateTemplateSelect();
+                    }
+                    if (config.urlHistory) {
+                        localStorage.setItem('ws-url-history', JSON.stringify(config.urlHistory));
+                        renderUrlHistory();
+                    }
+
+                    saveToStorage();
+                    showToast('配置已导入', 'success');
+
+                } catch (error) {
+                    showToast('导入失败: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // 本地存储
+        function saveToStorage() {
+            const config = {
+                url: document.getElementById('wsUrl').value,
+                theme: document.documentElement.getAttribute('data-theme') || 'dark',
+                heartbeat: {
+                    enabled: document.getElementById('heartbeatEnabled').checked,
+                    interval: document.getElementById('heartbeatInterval').value,
+                    templateId: document.getElementById('heartbeatTemplate').value,
+                    message: document.getElementById('heartbeatMessage').value
+                },
+                reconnect: {
+                    enabled: document.getElementById('reconnectEnabled').checked,
+                    maxAttempts: document.getElementById('reconnectMaxAttempts').value,
+                    interval: document.getElementById('reconnectInterval').value
+                },
+                templates: templates,
+                urlHistory: getUrlHistory()
+            };
+
+            localStorage.setItem('ws-debug-config', JSON.stringify(config));
+        }
+
+        function loadFromStorage() {
+            try {
+                const saved = localStorage.getItem('ws-debug-config');
+                if (!saved) return;
+
+                const config = JSON.parse(saved);
+
+                if (config.url) document.getElementById('wsUrl').value = config.url;
+                // 加载主题
+                if (config.theme) {
+                    document.documentElement.setAttribute('data-theme', config.theme);
+                }
+                // 先加载模板
+                if (config.templates) {
+                    templates = config.templates;
+                    renderTemplates();
+                }
+                if (config.heartbeat) {
+                    document.getElementById('heartbeatEnabled').checked = config.heartbeat.enabled;
+                    document.getElementById('heartbeatInterval').value = config.heartbeat.interval || 30;
+                    document.getElementById('heartbeatMessage').value = config.heartbeat.message || '';
+                    if (config.heartbeat.templateId) {
+                        document.getElementById('heartbeatTemplate').value = config.heartbeat.templateId;
+                    }
+                }
+                if (config.reconnect) {
+                    document.getElementById('reconnectEnabled').checked = config.reconnect.enabled;
+                    document.getElementById('reconnectMaxAttempts').value = config.reconnect.maxAttempts || 5;
+                    document.getElementById('reconnectInterval').value = config.reconnect.interval || 3;
+                }
+                // 最后调用updateTemplateSelect，确保所有配置都加载完毕
+                updateTemplateSelect();
+
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
+
+        // 顶部连接通知
+        let connectionNotificationTimer = null;
+
+        function showConnectionNotification(message, type = 'success') {
+            const notification = document.getElementById('connectionNotification');
+            notification.textContent = message;
+            notification.className = `connection-notification ${type}`;
+
+            // 清除之前的定时器
+            if (connectionNotificationTimer) {
+                clearTimeout(connectionNotificationTimer);
+            }
+
+            // 3秒后自动隐藏
+            connectionNotificationTimer = setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        // Toast 通知（顶部通知）
+        let toastTimer = null;
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            // 清除之前的通知
+            if (container.children.length > 1) {
+                container.children[0].remove();
+            }
+
+            // 3秒后自动隐藏
+            if (toastTimer) {
+                clearTimeout(toastTimer);
+            }
+            toastTimer = setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // 键盘快捷键
+        document.addEventListener('keydown', (e) => {
+            // Ctrl + Enter 发送消息
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendMessage();
+            }
+            // Escape 断开连接或关闭弹窗
+            if (e.key === 'Escape') {
+                if (isConnected) {
+                    disconnect();
+                }
+                closeTemplateModal();
+                closeAddTemplateModal();
+                closeEditTemplateModal();
+            }
+        });
+
+        // 点击弹窗外部关闭
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) {
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
